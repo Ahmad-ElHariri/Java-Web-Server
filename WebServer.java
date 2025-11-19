@@ -4,7 +4,8 @@ import java.util.*;
 
 public class WebServer {
     public static void main(String[] args) throws Exception {
-        // 1. Set the port number
+    
+    // 1. Set the port number
     int port = 6789;
 
     // 2. Setup the listen socket
@@ -48,7 +49,8 @@ class HttpRequest implements Runnable {
     }
 
     private void processRequest() throws Exception {
-        // 1. Get a reference to the socket’s input and output streams
+    
+    // 1. Get a reference to the socket’s input and output streams
     InputStream is = socket.getInputStream();
     DataOutputStream os = new DataOutputStream(socket.getOutputStream());
 
