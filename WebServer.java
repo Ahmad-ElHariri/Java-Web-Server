@@ -133,4 +133,46 @@ class HttpRequest implements Runnable {
         br.close();
         socket.close();
     }
+
+    /**
+     * Sends a file in 1KB chunks through the output stream.
+     * This avoids loading the entire file into memory.
+     */
+    private static void sendBytes(FileInputStream fis, OutputStream os)
+            throws Exception {
+
+        byte[] buffer = new byte[1024];
+        int bytes;
+
+        // Read from file and write to socket in chunks
+        while ((bytes = fis.read(buffer)) != -1) {
+            os.write(buffer, 0, bytes);
+        }
+    }
+
+    /**
+     * Determines the MIME type based on the file extension.
+     * This ensures images, CSS, JS, and HTML display correctly in the browser.
+     */
+    private static String contentType(String fileName) {
+        String lower = fileName.toLowerCase();
+
+        if (lower.endsWith(".htm") || lower.endsWith(".html"))
+            return "text/html";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg"))
+            return "image/jpeg";
+        if (lower.endsWith(".gif"))
+            return "image/gif";
+        if (lower.endsWith(".png"))
+            return "image/png";
+        if (lower.endsWith(".css"))
+            return "text/css";
+        if (lower.endsWith(".js"))
+            return "text/javascript";
+        if (lower.endsWith(".json"))
+            return "application/json";
+
+        // Default MIME type
+        return "application/octet-stream";
+    }
 }
