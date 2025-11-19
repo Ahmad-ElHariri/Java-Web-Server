@@ -2,81 +2,151 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
+/**
+ * CMPS 242 - Computer Networks
+ * Simple Multithreaded Web Server
+ *
+ * This server handles HTTP GET requests over a TCP connection.
+ * It supports serving HTML, CSS, JavaScript, and image files,
+ * returning appropriate MIME types, and returns a 404 page
+ * when a requested file does not exist.
+ *
+ * This implementation follows the project’s two-phase design:
+ *
+ * STEP 1: Accept connections, read request line + headers, print them.
+ * STEP 2: Generate a correct HTTP response and send requested file.
+ *
+ * Author: Sandra Dergham & Ahmad El Hariri
+ * Semester: Fall 2025/26
+ */
 public class WebServer {
     public static void main(String[] args) throws Exception {
 
-        // 1. Choose a port number for the web server (must not be port 80)
+        // ------------------------------------------------------------
+        // 1. Select a port number for the server (must be > 1024)
+        // ------------------------------------------------------------
         int port = 6789;
 
-        // 2. Create a listening server socket (door where clients connect)
+        // Create a server socket that listens for HTTP requests
         ServerSocket listenSocket = new ServerSocket(port);
         System.out.println("Web server running on port " + port);
 
-        // 3. Keep accepting connections forever (one per browser request)
+        // ------------------------------------------------------------
+        // 2. Continuously accept and process client connections.
+        // Each incoming connection is assigned its own thread.
+        // ------------------------------------------------------------
         while (true) {
 
-            // Accept an incoming TCP connection from a client
+            // Accept a TCP connection from a browser (client)
             Socket connectionSocket = listenSocket.accept();
 
-            // Create a handler object for this request
+            // Create a runnable HttpRequest handler for this client
             HttpRequest request = new HttpRequest(connectionSocket);
 
-            // Run the handler in a new thread (so many clients can connect at once)
+            // Create a new thread to serve the request
             Thread thread = new Thread(request);
+
+            // Start thread execution (multithreading)
             thread.start();
         }
     }
 }
 
+/**
+ * This class processes a single HTTP request from a client.
+ * It implements Runnable so that each request runs in a separate thread.
+ */
 class HttpRequest implements Runnable {
 
-    // HTTP lines end with CRLF: "\r\n"
+    // CRLF indicates end-of-line in HTTP headers
     final String CRLF = "\r\n";
 
-    // The socket dedicated to this specific client
+    // Socket dedicated to communicating with one specific browser
     Socket socket;
 
-    // Constructor receives the client’s socket
+    // Constructor receives the connected client socket
     public HttpRequest(Socket socket) {
         this.socket = socket;
     }
 
-    // This runs when the thread starts
+    /**
+     * Entry point for the request-handling thread.
+     * Calls processRequest() and catches exceptions.
+     */
     public void run() {
         try {
-            processRequest();  // handle the request
+            processRequest();
         } catch (Exception e) {
             System.out.println(e);
         }
     }
 
-    // Reads and prints the HTTP request from the browser
+    /**
+     * STEP 1:
+     * - Read request line
+     * - Read and print headers
+     *
+     * STEP 2:
+     * - Extract file name from the GET request
+     * - Attempt to open file
+     * - Build HTTP response message
+     * - Send file or 404 page
+     * - Close the connection
+     */
     private void processRequest() throws Exception {
 
-        // 1. Get input stream (from client → server)
-        //    and output stream (from server → client)
+        // ------------------------------------------------------------
+        // 1. Get input and output streams from the socket
+        // ------------------------------------------------------------
         InputStream is = socket.getInputStream();
         DataOutputStream os = new DataOutputStream(socket.getOutputStream());
-
-        // 2. Wrap the input stream so we can read text lines easily
         BufferedReader br = new BufferedReader(new InputStreamReader(is));
 
-        // 3. Read the first line of the HTTP request (the Request Line)
+        // ------------------------------------------------------------
+        // 2. Read the Request Line (e.g., "GET /index.html HTTP/1.1")
+        // ------------------------------------------------------------
         String requestLine = br.readLine();
+
+        // If browser opens a speculative TCP connection with no data:
+        if (requestLine == null) {
+            os.close();
+            br.close();
+            socket.close();
+            return;
+        }
+
         System.out.println();
         System.out.println("Request Line: " + requestLine);
 
-        // Extract the requested filename from the Request Line
-        // Example: "GET /index.html HTTP/1.1"
+        // ------------------------------------------------------------
+        // 3. Extract requested file name from Request Line
+        // ------------------------------------------------------------
         StringTokenizer tokens = new StringTokenizer(requestLine);
-        tokens.nextToken();                // skip the word "GET"
-        String fileName = tokens.nextToken();  // get "/index.html"
-        fileName = "." + fileName;         // convert to "./index.html"
+        tokens.nextToken(); // Skip the "GET"
+        String fileName = tokens.nextToken(); // e.g., "/index.html"
+        fileName = "." + fileName; // Serve from current directory
         System.out.println("Extracted file name: " + fileName);
 
-        // 4. Read and print all header lines until the empty line
+        // ------------------------------------------------------------
+        // 4. Read and print all HTTP headers until blank line
+        // ------------------------------------------------------------
         String headerLine;
-        while ((headerLine = br.readLine()) != null && headerLine.length() != 0) {
+        while (true) {
+            headerLine = br.readLine();
+
+            if (headerLine == null) {
+                // Client closed connection unexpectedly
+                os.close();
+                br.close();
+                socket.close();
+                return;
+            }
+
+            if (headerLine.length() == 0) {
+                // End of headers
+                break;
+            }
+
             System.out.println("Header: " + headerLine);
         }
 
