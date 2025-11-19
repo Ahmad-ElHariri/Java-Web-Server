@@ -80,7 +80,55 @@ class HttpRequest implements Runnable {
             System.out.println("Header: " + headerLine);
         }
 
-        // 5. Close streams and socket (this ends the communication)
+        // ------------------------------------------------------------
+        // 5. STEP 2: Attempt to open requested file
+        // ------------------------------------------------------------
+        FileInputStream fis = null;
+        boolean fileExists = true;
+
+        try {
+            fis = new FileInputStream(fileName);
+        } catch (FileNotFoundException e) {
+            fileExists = false;
+        }
+
+        // ------------------------------------------------------------
+        // 6. Build status line and content-type line
+        // ------------------------------------------------------------
+        String statusLine;
+        String contentTypeLine;
+        String entityBody = "";
+
+        if (fileExists) {
+            statusLine = "HTTP/1.1 200 OK" + CRLF;
+            contentTypeLine = "Content-Type: " + contentType(fileName) + CRLF;
+        } else {
+            statusLine = "HTTP/1.1 404 Not Found" + CRLF;
+            contentTypeLine = "Content-Type: text/html" + CRLF;
+            entityBody = "<HTML><HEAD><TITLE>Not Found</TITLE></HEAD>"
+                    + "<BODY>404 File Not Found</BODY></HTML>";
+        }
+
+        // ------------------------------------------------------------
+        // 7. Send the HTTP response headers
+        // ------------------------------------------------------------
+        os.writeBytes(statusLine);
+        os.writeBytes(contentTypeLine);
+        os.writeBytes(CRLF); // End of headers
+
+        // ------------------------------------------------------------
+        // 8. Send file or 404 error body
+        // ------------------------------------------------------------
+        if (fileExists) {
+            sendBytes(fis, os);
+            fis.close();
+        } else {
+            os.writeBytes(entityBody);
+        }
+
+        // ------------------------------------------------------------
+        // 9. Close streams and socket
+        // ------------------------------------------------------------
         os.close();
         br.close();
         socket.close();
